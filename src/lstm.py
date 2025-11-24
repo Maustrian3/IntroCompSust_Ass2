@@ -153,6 +153,7 @@ def train_model(
     val_loader: DataLoader,
     epochs: int = 50,
     lr: float = 0.001,
+    l2_weight_decay: float = 1e-4,
     device: str | torch.device = None,
 ):
     """Train the model and keep best weights (by val loss)."""
@@ -162,7 +163,7 @@ def train_model(
 
     model = model.to(device)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_weight_decay)
 
     best_val_loss = float("inf")
     best_state_dict = None
