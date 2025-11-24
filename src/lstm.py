@@ -117,9 +117,9 @@ class GRUPredictor(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dim: int = 64,
-        num_layers: int = 2,
-        dropout: float = 0.2,
+        hidden_dim: int = 32,
+        num_layers: int = 1,
+        dropout: float = 0.4,
     ):
         super().__init__()
 
