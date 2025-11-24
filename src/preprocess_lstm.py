@@ -297,9 +297,9 @@ if __name__ == "__main__":
 
     preprocessor = SequencePreprocessor(
         target_col="prec",
-        sequence_length=14,
+        sequence_length=7,
     )
 
     train_data, val_data, test_data = preprocessor.preprocess(gauges)
 
-    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir="preprocessed")
+    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir="preprocessed_7")
