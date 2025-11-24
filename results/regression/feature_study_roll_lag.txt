@@ -1,0 +1,63 @@
+# The following rolling features with window length of [3, 7] days were added for this run:
+# '2m_temp_mean', 'surf_press', 'prec'
+
+# The following lag features with [1, 3, 7] days in the past were added for this run:
+# '2m_temp_mean', '2m_dp_temp_mean', 'surf_press', 'total_et', 'prec'
+
+Consolidated data shape: (1424400, 27)
+After feature engineering: (1424400, 54)
+Train: 1029129, Val: 181611, Test: 213660
+Number of features: 45
+Training samples: 1029129
+Features: 45
+
+Linear   - Train: 0.27, Val: 0.29, Test: 0.27 mm, R²: 0.735
+
+Top 10 features for Linear (by |coef|):
+             feature      coef  abs_coef
+    surf_press_roll3  7.193619  7.193619
+     surf_press_lag1 -3.380316  3.380316
+          surf_press -3.356343  3.356343
+     surf_press_lag3 -1.509579  1.509579
+        2m_temp_mean -1.503481  1.503481
+    surf_press_roll7  1.160261  1.160261
+          prec_roll3  0.920120  0.920120
+  2m_temp_mean_roll3  0.888270  0.888270
+2m_dp_temp_mean_lag1 -0.887922  0.887922
+   2m_temp_mean_lag1  0.866089  0.866089
+
+------------------------------------------------------------
+
+Ridge    - Train: 0.27, Val: 0.29, Test: 0.27 mm, R²: 0.735
+
+Top 10 features for Ridge (by |coef|):
+             feature      coef  abs_coef
+    surf_press_roll3  7.125278  7.125278
+     surf_press_lag1 -3.339435  3.339435
+          surf_press -3.338068  3.338068
+        2m_temp_mean -1.501799  1.501799
+     surf_press_lag3 -1.495672  1.495672
+    surf_press_roll7  1.154911  1.154911
+          prec_roll3  0.919711  0.919711
+2m_dp_temp_mean_lag1 -0.888376  0.888376
+  2m_temp_mean_roll3  0.882331  0.882331
+   2m_temp_mean_lag1  0.870422  0.870422
+
+------------------------------------------------------------
+
+Lasso    - Train: 0.47, Val: 0.52, Test: 0.48 mm, R²: 0.527
+
+Top 10 features for Lasso (by |coef|):
+                feature      coef  abs_coef
+             prec_roll3  0.491434  0.491434
+surf_net_therm_rad_mean -0.206989  0.206989
+         2m_dp_temp_max  0.027563  0.027563
+ surf_net_therm_rad_max -0.023886  0.023886
+          total_et_lag1  0.016095  0.016095
+              prec_lag1 -0.003828  0.003828
+         2m_dp_temp_min  0.000000  0.000000
+             10m_wind_v -0.000000  0.000000
+             10m_wind_u  0.000000  0.000000
+            2m_temp_max  0.000000  0.000000
+
+------------------------------------------------------------

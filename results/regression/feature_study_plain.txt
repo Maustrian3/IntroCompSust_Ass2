@@ -1,0 +1,62 @@
+# No rolling features or lag features were added during preprocessing during this run
+
+Consolidated data shape: (1424400, 27)
+After feature engineering: (1424400, 33)
+Train: 1029129, Val: 181611, Test: 213660
+Number of features: 24
+Training samples: 1029129
+Features: 24
+
+Linear   - Train: 0.54, Val: 0.58, Test: 0.54 mm, R²: 0.467
+
+Top 10 features for Linear (by |coef|):
+                feature      coef  abs_coef
+surf_net_solar_rad_mean -1.149625  1.149625
+           2m_temp_mean -1.000824  1.000824
+        2m_dp_temp_mean  0.815753  0.815753
+               total_et  0.575926  0.575926
+                doy_cos -0.558200  0.558200
+         2m_dp_temp_max  0.526147  0.526147
+         2m_dp_temp_min -0.425505  0.425505
+             surf_press -0.292908  0.292908
+ surf_net_solar_rad_max  0.271868  0.271868
+            2m_temp_min  0.244426  0.244426
+
+------------------------------------------------------------
+
+Ridge    - Train: 0.54, Val: 0.58, Test: 0.54 mm, R²: 0.467
+
+Top 10 features for Ridge (by |coef|):
+                feature      coef  abs_coef
+surf_net_solar_rad_mean -1.149624  1.149624
+           2m_temp_mean -1.000368  1.000368
+        2m_dp_temp_mean  0.815323  0.815323
+               total_et  0.575905  0.575905
+                doy_cos -0.558166  0.558166
+         2m_dp_temp_max  0.526291  0.526291
+         2m_dp_temp_min -0.425259  0.425259
+             surf_press -0.292904  0.292904
+ surf_net_solar_rad_max  0.271867  0.271867
+            2m_temp_min  0.244208  0.244208
+
+------------------------------------------------------------
+
+Lasso    - Train: 0.67, Val: 0.73, Test: 0.67 mm, R²: 0.334
+
+Top 10 features for Lasso (by |coef|):
+                feature      coef  abs_coef
+surf_net_therm_rad_mean -0.450369  0.450369
+                doy_cos -0.177762  0.177762
+             10m_wind_u  0.014880  0.014880
+ surf_net_therm_rad_max -0.004995  0.004995
+         2m_dp_temp_max  0.000000  0.000000
+            2m_temp_max  0.000000  0.000000
+            2m_temp_min  0.000000  0.000000
+           2m_temp_mean  0.000000  0.000000
+             10m_wind_v -0.000000  0.000000
+         2m_dp_temp_min  0.000000  0.000000
+
+------------------------------------------------------------
+
+
+Process finished with exit code 0
