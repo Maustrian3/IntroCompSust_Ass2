@@ -241,7 +241,7 @@ def evaluate_model(
 
     from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-    rmse = mean_squared_error(actuals, predictions, squared=False)
+    rmse = mean_squared_error(actuals, predictions)
     mae = mean_absolute_error(actuals, predictions)
     r2 = r2_score(actuals, predictions)
 
