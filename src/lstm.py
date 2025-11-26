@@ -9,8 +9,6 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 
 
-# ---------- Data loading from artifacts ----------
-
 def load_preprocessed_artifacts(
     base_dir: str | Path = ".",
     dataset_file: str = "lstm_dataset.npz",
@@ -55,8 +53,6 @@ def load_preprocessed_artifacts(
         target_col,
     )
 
-
-# ---------- PyTorch Dataset ----------
 
 class SequenceDataset(Dataset):
     """PyTorch Dataset for sequences."""
@@ -145,36 +141,31 @@ class GRUPredictor(nn.Module):
         return output.squeeze(-1)
 
 
-# ---------- Train / Eval ----------
-
 def train_model(
-    model: nn.Module,
-    train_loader: DataLoader,
-    val_loader: DataLoader,
-    epochs: int = 50,
-    lr: float = 0.001,
-    l2_weight_decay: float = 1e-4,
-    device: str | torch.device = None,
+        model: nn.Module,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        epochs: int = 50,
+        lr: float = 0.001,
+        device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
 ):
-    """Train the model and keep best weights (by val loss)."""
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
-
+    """Train the model and return model + loss histories."""
     model = model.to(device)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    best_val_loss = float("inf")
+    best_val_loss = float('inf')
     best_state_dict = None
 
+    train_losses = []
+    val_losses = []
+
     for epoch in range(epochs):
-        # Training
+        # ----- Training -----
         model.train()
         train_loss = 0.0
         for X_batch, y_batch in train_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
 
             optimizer.zero_grad()
             predictions = model(X_batch)
@@ -186,18 +177,20 @@ def train_model(
 
         train_loss /= len(train_loader)
 
-        # Validation
+        # ----- Validation -----
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for X_batch, y_batch in val_loader:
-                X_batch = X_batch.to(device)
-                y_batch = y_batch.to(device)
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
                 predictions = model(X_batch)
                 loss = criterion(predictions, y_batch)
                 val_loss += loss.item()
 
         val_loss /= len(val_loader)
+
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
 
         print(
             f"Epoch {epoch + 1}/{epochs} - "
@@ -213,8 +206,7 @@ def train_model(
     if best_state_dict is not None:
         model.load_state_dict(best_state_dict)
 
-    return model
-
+    return model, train_losses, val_losses
 
 def evaluate_model(
     model: nn.Module,
@@ -261,12 +253,8 @@ def evaluate_model(
     return predictions, actuals
 
 
-# ---------- Example Colab entrypoint ----------
 
 if __name__ == "__main__":
-    # In Colab:
-    # - Either upload the preprocessed/ folder via files.upload()
-    # - Or mount Drive and point base_dir there
     base_dir = "preprocessed"  # adjust if needed
 
     (X_train, y_train), (X_val, y_val), (X_test, y_test), _, target_scaler, seq_len, feature_cols, target_col = (
