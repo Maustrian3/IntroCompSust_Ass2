@@ -15,7 +15,7 @@ class SequencePreprocessor:
         self,
         target_col: str = "prec",
         sequence_length: int = 14,  # Use past 14 days to predict tomorrow
-        test_size: float = 0.2,
+        test_size: float = 0.1,
         val_size: float = 0.1,
         random_state: int = 42,
     ):
@@ -113,7 +113,7 @@ class SequencePreprocessor:
                 # Input: past sequence_length days
                 seq = group.iloc[i : i + self.sequence_length][feature_cols].values
                 # Target: precipitation on day sequence_length + 1
-                target = group.iloc[i + self.sequence_length][self.target_col]
+                target = group.iloc[i + self.sequence_length][self.target_col] ## TODO is  +1 actually happening?
                 date = group.iloc[i + self.sequence_length]["date"]
 
                 sequences.append(seq)
@@ -293,13 +293,13 @@ if __name__ == "__main__":
     from dataloader import load_random_gauges
 
     DATA_DIR = Path("..") / "data"
-    gauges = load_random_gauges(DATA_DIR, n_samples=50, seed=42)
+    gauges = load_random_gauges(DATA_DIR, n_samples=100, seed=42) # TODO re-preprocess everything with 100 samples
 
     preprocessor = SequencePreprocessor(
         target_col="prec",
-        sequence_length=7,
+        sequence_length=30, # Use last 30 days for prediction
     )
 
     train_data, val_data, test_data = preprocessor.preprocess(gauges)
 
-    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir="preprocessed_7")
+    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir="preprocessed_30")

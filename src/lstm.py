@@ -164,7 +164,16 @@ def train_model(
     """Train the model and return model + loss histories."""
     model = model.to(device)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+
+    # Scheduler: Lowers the LR when validation loss stops improving
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=0.5,
+        patience=5,
+        min_lr=1e-6
+    )
 
     best_val_loss = float('inf')
     best_state_dict = None
@@ -200,6 +209,8 @@ def train_model(
                 val_loss += loss.item()
 
         val_loss /= len(val_loader)
+
+        scheduler.step(val_loss)
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
