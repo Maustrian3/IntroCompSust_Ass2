@@ -74,13 +74,15 @@ class LSTMPredictor(nn.Module):
     """LSTM model for precipitation prediction."""
 
     def __init__(
-        self,
-        input_dim: int,
-        hidden_dim: int = 64,
-        num_layers: int = 2,
-        dropout: float = 0.2,
+            self,
+            input_dim: int,
+            hidden_dim: int = 64,
+            num_layers: int = 2,
+            dropout: float = 0.2,
     ):
         super().__init__()
+
+        self.num_layers = num_layers
 
         self.lstm = nn.LSTM(
             input_size=input_dim,
@@ -89,6 +91,9 @@ class LSTMPredictor(nn.Module):
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0.0,
         )
+
+        # Manual dropout for LSTM output (used when num_layers == 1)
+        self.lstm_dropout = nn.Dropout(dropout)
 
         self.fc = nn.Sequential(
             nn.Linear(hidden_dim, 32),
@@ -100,8 +105,15 @@ class LSTMPredictor(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch, sequence_length, input_dim)
         lstm_out, _ = self.lstm(x)
+
         # Use last timestep
         last_output = lstm_out[:, -1, :]
+
+        # Apply dropout to LSTM output if only 1 layer
+        # (for multi-layer, dropout is already applied between LSTM layers)
+        if self.num_layers == 1:
+            last_output = self.lstm_dropout(last_output)
+
         # Predict
         output = self.fc(last_output)
         return output.squeeze(-1)
