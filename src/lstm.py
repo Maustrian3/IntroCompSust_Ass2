@@ -131,6 +131,8 @@ class GRUPredictor(nn.Module):
     ):
         super().__init__()
 
+        self.num_layers = num_layers
+
         self.gru = nn.GRU(
             input_size=input_dim,
             hidden_size=hidden_dim,
