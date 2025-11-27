@@ -273,13 +273,16 @@ def evaluate_model(
     predictions = np.array(predictions)
     actuals = np.array(actuals)
 
-    # Inverse transform to get actual mm values
-    predictions = target_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
-    actuals = target_scaler.inverse_transform(actuals.reshape(-1, 1)).flatten()
+    # Inverse transform scaler (back to LOG space)
+    predictions_log = target_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
+    actuals_log = target_scaler.inverse_transform(actuals.reshape(-1, 1)).flatten()
 
+    # Inverse log1p (back to mm)
+    predictions = np.expm1(predictions_log)
+    actuals = np.expm1(actuals_log)
     from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-    rmse = mean_squared_error(actuals, predictions)
+    rmse = np.sqrt(mean_squared_error(actuals, predictions))
     mae = mean_absolute_error(actuals, predictions)
     r2 = r2_score(actuals, predictions)
 

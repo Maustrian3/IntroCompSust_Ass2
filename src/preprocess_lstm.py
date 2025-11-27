@@ -130,8 +130,8 @@ class SequencePreprocessor:
     def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Feature engineering pipeline."""
         df = self.create_temporal_features(df)
-        df = self.create_lag_features(df)
-        df = self.create_rolling_features(df)
+        # df = self.create_lag_features(df)
+        # df = self.create_rolling_features(df)
         df = self.handle_missing_values(df)
 
         # Cast numeric columns to float32 to reduce memory
@@ -297,6 +297,9 @@ class SequencePreprocessor:
             if col not in exclude_cols and df[col].dtype.kind in ("f", "i")
         ]
 
+        # Transform target column for better distribution
+        df[self.target_col] = np.log1p(df[self.target_col])
+
         print(f"{len(self.feature_cols)} Features for sequences: {self.feature_cols}")
 
         # Create sequences
@@ -317,6 +320,11 @@ class SequencePreprocessor:
         X_train, y_train = self.scale_sequences(X_train, y_train)
         X_val, y_val = self.scale_sequences(X_val, y_val)
         X_test, y_test = self.scale_sequences(X_test, y_test)
+
+        # Sanity check
+        flat = X_train.reshape(-1, X_train.shape[-1])
+        print(flat.mean(axis=0)[:5], flat.std(axis=0)[:5])
+        print(y_train.mean(), y_train.std())
 
         return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
