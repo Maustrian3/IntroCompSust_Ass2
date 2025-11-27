@@ -139,6 +139,9 @@ class GRUPredictor(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
         )
 
+        # Manual dropout for LSTM output (used when num_layers == 1)
+        self.lstm_dropout = nn.Dropout(dropout)
+
         self.fc = nn.Sequential(
             nn.Linear(hidden_dim, 32),
             nn.ReLU(),
@@ -147,8 +150,18 @@ class GRUPredictor(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (batch, sequence_length, input_dim)
         gru_out, _ = self.gru(x)
+
+        # Use last timestep
         last_output = gru_out[:, -1, :]
+
+        # Apply dropout to LSTM output if only 1 layer
+        # (for multi-layer, dropout is already applied between LSTM layers)
+        if self.num_layers == 1:
+            last_output = self.lstm_dropout(last_output)
+
+        # Predict
         output = self.fc(last_output)
         return output.squeeze(-1)
 
@@ -167,13 +180,13 @@ def train_model(
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
 
     # Scheduler: Lowers the LR when validation loss stops improving
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.5,
-        patience=5,
-        min_lr=1e-6
-    )
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer,
+    #     mode='min',
+    #     factor=0.5,
+    #     patience=5,
+    #     min_lr=1e-6
+    # )
 
     best_val_loss = float('inf')
     best_state_dict = None
@@ -210,7 +223,7 @@ def train_model(
 
         val_loss /= len(val_loader)
 
-        scheduler.step(val_loss)
+        # scheduler.step(val_loss)
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
