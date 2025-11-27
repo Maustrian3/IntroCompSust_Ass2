@@ -293,42 +293,5 @@ def evaluate_model(
 
 
 if __name__ == "__main__":
-    base_dir = "preprocessed"  # adjust if needed
-
-    (X_train, y_train), (X_val, y_val), (X_test, y_test), _, target_scaler, seq_len, feature_cols, target_col = (
-        load_preprocessed_artifacts(base_dir=base_dir)
-    )
-
-    train_dataset = SequenceDataset(X_train, y_train)
-    val_dataset = SequenceDataset(X_val, y_val)
-    test_dataset = SequenceDataset(X_test, y_test)
-
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-
-    input_dim = X_train.shape[2]
-
-    model = LSTMPredictor(
-        input_dim=input_dim,
-        hidden_dim=64,
-        num_layers=2,
-        dropout=0.2,
-    )
-
-    print(f"\nModel: LSTM with {input_dim} input features")
-    print(f"Total parameters: {sum(p.numel() for p in model.parameters())}")
-
-    model = train_model(
-        model,
-        train_loader,
-        val_loader,
-        epochs=50,
-        lr=0.001,
-    )
-
-    predictions, actuals = evaluate_model(
-        model,
-        test_loader,
-        target_scaler=target_scaler,
-    )
+    pass
+    # Execution see notebook

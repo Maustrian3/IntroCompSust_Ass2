@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import joblib
+from tqdm.auto import tqdm
 
 
 class SequencePreprocessor:
@@ -17,6 +18,8 @@ class SequencePreprocessor:
         sequence_length: int = 14,  # Use past 14 days to predict tomorrow
         test_size: float = 0.1,
         val_size: float = 0.1,
+        lag_days: list[int] = [],
+        rolling_windows: list[int] = [],
         random_state: int = 42,
     ):
         """
@@ -30,6 +33,8 @@ class SequencePreprocessor:
         self.sequence_length = sequence_length
         self.test_size = test_size
         self.val_size = val_size
+        self.lag_days = lag_days
+        self.rolling_windows = rolling_windows
         self.random_state = random_state
 
         self.feature_scaler: StandardScaler | None = None
@@ -70,6 +75,47 @@ class SequencePreprocessor:
 
         return df
 
+    def create_lag_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create lagged features for key weather variables. Directly encodes feature relevance of previous days into the dataset"""
+        df = df.copy()
+
+        # Key features to create lags for
+        lag_features = [
+            '2m_temp_mean', '2m_dp_temp_mean', 'surf_press',
+            'total_et', self.target_col
+        ]
+
+        for feature in lag_features:
+            if feature not in df.columns:
+                continue
+            for lag in self.lag_days:
+                df[f'{feature}_lag{lag}'] = df.groupby('gauge_id')[feature].shift(lag)
+
+        return df
+
+    def create_rolling_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create rolling mean features. Smoothing out values to reduce noise"""
+        df = df.copy()
+
+        # Key features to create rolling windows for
+        roll_features = [
+            '2m_temp_mean', 'surf_press', self.target_col
+        ]
+
+        for feature in roll_features:
+            if feature not in df.columns:
+                continue
+            for window in self.rolling_windows:
+                df[f'{feature}_roll{window}'] = (
+                    df.groupby('gauge_id')[feature]
+                    .rolling(window=window, min_periods=1)
+                    .mean()
+                    .reset_index(level=0, drop=True)
+                )
+
+        return df
+
+
     def handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """Forward/backward fill missing values per gauge."""
         df = df.copy()
@@ -82,9 +128,15 @@ class SequencePreprocessor:
         return df
 
     def prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Feature engineering pipeline (no lag features needed!)."""
+        """Feature engineering pipeline."""
         df = self.create_temporal_features(df)
+        df = self.create_lag_features(df)
+        df = self.create_rolling_features(df)
         df = self.handle_missing_values(df)
+
+        # Cast numeric columns to float32 to reduce memory
+        num_cols = df.select_dtypes(include=[np.number]).columns
+        df[num_cols] = df[num_cols].astype(np.float32)
         return df
 
     def create_sequences(
@@ -108,20 +160,27 @@ class SequencePreprocessor:
         for gauge_id, group in df.groupby("gauge_id"):
             group = group.sort_values("date").reset_index(drop=True)
 
+            feature_matrix = group[feature_cols].values
+            target_array = group[self.target_col].values
+            date_array = group["date"].values
+
             # Create sequences
-            for i in range(len(group) - self.sequence_length):
+            for i in range(len(feature_matrix) - self.sequence_length):
                 # Input: past sequence_length days
-                seq = group.iloc[i : i + self.sequence_length][feature_cols].values
+                seq = feature_matrix[i: i + self.sequence_length]
                 # Target: precipitation on day sequence_length + 1
-                target = group.iloc[i + self.sequence_length][self.target_col] ## TODO is  +1 actually happening?
-                date = group.iloc[i + self.sequence_length]["date"]
+                target = target_array[i + self.sequence_length]
+                date = date_array[i + self.sequence_length]
+
+                seq_dates = date_array[i: i + self.sequence_length]
+                target_date = date_array[i + self.sequence_length]
 
                 sequences.append(seq)
                 targets.append(target)
                 dates.append(date)
 
-        X = np.array(sequences)  # (num_sequences, sequence_length, num_features)
-        y = np.array(targets)  # (num_sequences,)
+        X = np.array(sequences, dtype=np.float32)  # (num_sequences, sequence_length, num_features)
+        y = np.array(targets, dtype=np.float32)  # (num_sequences,)
         dates = np.array(dates)
 
         return X, y, dates
@@ -153,35 +212,56 @@ class SequencePreprocessor:
         return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
     def fit_scalers(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
-        """Fit scalers on training data."""
-        # Reshape for scaling: (num_sequences * sequence_length, num_features)
-        X_reshaped = X_train.reshape(-1, X_train.shape[-1])
+        """Fit scalers on training data in batches."""
+        n_seq, seq_len, n_feat = X_train.shape
 
-        self.feature_scaler = StandardScaler()
-        self.feature_scaler.fit(X_reshaped)
+        max_rows_per_batch = 300_000
+        batch_size = max(1, max_rows_per_batch // seq_len)
 
-        self.target_scaler = StandardScaler()
+        print(
+            f"[fit_scalers] n_seq={n_seq}, seq_len={seq_len}, "
+            f"n_feat={n_feat}, batch_size={batch_size}"
+        )
+
+        # Feature scaler with in-place behaviour
+        self.feature_scaler = StandardScaler(copy=False)
+
+        # Batched partial_fit over views of X_train
+        for start in range(0, n_seq, batch_size):
+            end = min(start + batch_size, n_seq)
+            batch_view = X_train[start:end].reshape(-1, n_feat)  # view, no copy
+            self.feature_scaler.partial_fit(batch_view)
+
+        # Target scaler
+        self.target_scaler = StandardScaler(copy=False)
         self.target_scaler.fit(y_train.reshape(-1, 1))
 
     def scale_sequences(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
+            self,
+            X: np.ndarray,
+            y: np.ndarray,
+            max_rows_per_batch: int = 300_000,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Scale sequences and targets."""
+        """Scale sequences and targets in-place in batches."""
         if self.feature_scaler is None or self.target_scaler is None:
             raise RuntimeError("Scalers are not fitted yet. Call fit_scalers first.")
 
-        # Scale features
-        original_shape = X.shape
-        X_reshaped = X.reshape(-1, X.shape[-1])
-        X_scaled = self.feature_scaler.transform(X_reshaped)
-        X_scaled = X_scaled.reshape(original_shape)
+        n_seq, seq_len, n_feat = X.shape
+        batch_size = max(1, max_rows_per_batch // seq_len)
 
-        # Scale target
-        y_scaled = self.target_scaler.transform(y.reshape(-1, 1)).flatten()
+        # Scale X in-place, batch by batch
+        for start in range(0, n_seq, batch_size):
+            end = min(start + batch_size, n_seq)
+            batch_view = X[start:end].reshape(-1, n_feat)  # view into X
+            # copy=False is controlled by the scaler itself
+            self.feature_scaler.transform(batch_view)
 
-        return X_scaled, y_scaled
+        # Scale y in-place-ish (this one is tiny compared to X)
+        y_view = y.reshape(-1, 1)
+        self.target_scaler.transform(y_view)
+        y_scaled = y_view.ravel()
+
+        return X, y_scaled
 
     def preprocess(
         self,
@@ -209,16 +289,15 @@ class SequencePreprocessor:
             "DD",
             "DOY",
             "month",
-            "day_of_year",
-            self.target_col,
+            "day_of_year"
         ]
         self.feature_cols = [
             col
             for col in df.columns
-            if col not in exclude_cols and df[col].dtype in [np.float64, np.int64]
+            if col not in exclude_cols and df[col].dtype.kind in ("f", "i")
         ]
 
-        print(f"Features for sequences: {len(self.feature_cols)}")
+        print(f"{len(self.feature_cols)} Features for sequences: {self.feature_cols}")
 
         # Create sequences
         X, y, dates = self.create_sequences(df, self.feature_cols)
@@ -293,13 +372,22 @@ if __name__ == "__main__":
     from dataloader import load_random_gauges
 
     DATA_DIR = Path("..") / "data"
-    gauges = load_random_gauges(DATA_DIR, n_samples=100, seed=42) # TODO re-preprocess everything with 100 samples
+    N_SAMPLES = 100
+    SEED = 42
+    SEQ_LEN = 3 # Use last SEQ_LEN days for prediction
+
+    LAG_DAYS = [1, 3, 7]
+    ROLLING_WINDOWS = [3, 7]
+
+    gauges = load_random_gauges(DATA_DIR, n_samples=N_SAMPLES, seed=SEED) # TODO re-preprocess everything with 100 samples
 
     preprocessor = SequencePreprocessor(
         target_col="prec",
-        sequence_length=30, # Use last 30 days for prediction
+        lag_days=LAG_DAYS,
+        rolling_windows=ROLLING_WINDOWS,
+        sequence_length=SEQ_LEN,
     )
 
     train_data, val_data, test_data = preprocessor.preprocess(gauges)
 
-    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir="preprocessed_30")
+    preprocessor.save_artifacts(train_data, val_data, test_data, out_dir=f"preprocessed_{SEQ_LEN}")
