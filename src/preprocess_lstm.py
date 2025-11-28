@@ -382,10 +382,12 @@ if __name__ == "__main__":
     DATA_DIR = Path("..") / "data"
     N_SAMPLES = 100
     SEED = 42
-    SEQ_LEN = 3 # Use last SEQ_LEN days for prediction
+    SEQ_LEN = 14 # Use last SEQ_LEN days for prediction
 
-    LAG_DAYS = [1, 3, 7]
-    ROLLING_WINDOWS = [3, 7]
+    LAG_DAYS = []
+    # LAG_DAYS = [1, 3, 7]
+    ROLLING_WINDOWS = []
+    # ROLLING_WINDOWS = [3, 7]
 
     gauges = load_random_gauges(DATA_DIR, n_samples=N_SAMPLES, seed=SEED) # TODO re-preprocess everything with 100 samples
 
